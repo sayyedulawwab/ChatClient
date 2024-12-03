@@ -2,8 +2,8 @@ import { useState } from "react";
 
 function WaitingRoom({ joinChatRoom }) {
   
-    const [username, setUsername] = useState();
-    const [chatroom, setChatroom] = useState();
+    const [username, setUsername] = useState('');
+    const [chatroom, setChatroom] = useState('');
   
     return (
         <form onSubmit={ e => {

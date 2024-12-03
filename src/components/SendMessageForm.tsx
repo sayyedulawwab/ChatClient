@@ -1,11 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const SendMessageForm = ({ sendMessage, onTyping }) => {
     const [message, setMessage] = useState('');
-    
+    const [isTyping, setIsTyping] = useState(false);
+
+    useEffect(() => {
+        if (!isTyping) return;
+
+        const timer = setTimeout(() => {
+            setIsTyping(false); // Reset typing state after a delay
+        }, 3000);
+
+        return () => clearTimeout(timer); // Clear timer on component unmount
+    }, [isTyping]);
+
 
     const handleTyping = () => {
-        onTyping();
+        if (!isTyping) {
+            onTyping(); // Call the typing event only once per burst of typing
+            setIsTyping(true);
+        }
     };
 
     return <form onSubmit={ e => {
@@ -15,7 +29,7 @@ const SendMessageForm = ({ sendMessage, onTyping }) => {
     
     }}>
         <label htmlFor="chat">chat</label>
-        <input type="text" onChange={e => {setMessage(e.target.value); handleTyping();}} value={message} />
+        <input type="text" id="chat" onChange={e => {setMessage(e.target.value); handleTyping();}} value={message} />
         <button type="submit" disabled={!message}>Send</button>
     </form>
 }
