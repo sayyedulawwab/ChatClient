@@ -2,13 +2,14 @@
 const MessageContainer = ({messages}) => {
   return (
     <div>
+      <table>
         {
-            messages.map((message, index) => <table>
-                <tr key={index}>
+            messages.map((message, index) => <tr key={index}>
                     <td>{message.message} - {message.username}</td>
                 </tr>
-            </table> )
+             )
         }
+        </table>
     </div>
   )
 }
