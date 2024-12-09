@@ -1,7 +1,7 @@
 import MessageContainer from "./MessageContainer"
 import SendMessageForm from "./SendMessageForm"
 
-const ChatRoom = ({ room, messages, sendMessage, typingIndicator, typing }) => {
+const ChatRoom = ({conversationId, room, user, messages, sendMessage, typingIndicator, typing }) => {
   return (
     <>
         <h2>Chat Room: {room}</h2>
@@ -11,7 +11,7 @@ const ChatRoom = ({ room, messages, sendMessage, typingIndicator, typing }) => {
         </div>
         {typingIndicator && <p>{typingIndicator}</p>}
         <div>
-            <SendMessageForm sendMessage={sendMessage} onTyping={() => typing()} />
+            <SendMessageForm conversationId={conversationId} user={user} sendMessage={sendMessage} onTyping={() => typing()} />
         </div>
     </>
   )

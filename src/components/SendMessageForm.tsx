@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const SendMessageForm = ({ sendMessage, onTyping }) => {
+const SendMessageForm = ({conversationId, user, sendMessage, onTyping }) => {
     const [message, setMessage] = useState('');
     const [isTyping, setIsTyping] = useState(false);
 
@@ -24,7 +24,7 @@ const SendMessageForm = ({ sendMessage, onTyping }) => {
 
     return <form onSubmit={ e => {
         e.preventDefault();
-        sendMessage(message); 
+        sendMessage(conversationId, user, message); 
         setMessage('');
     
     }}>
