@@ -1,9 +1,21 @@
-import { createContext, ReactNode, useContext, useState } from 'react';
+import { jwtDecode } from 'jwt-decode';
+import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+
+interface DecodedToken {
+  aud: string;
+  exp: number;
+  iss: string;
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress": string;
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name": string;
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier": string;
+}
 
 interface AuthContextProps {
   token: string | null;
   username: string | null;
-  login: (token: string, username: string) => void;
+  email: string | null;
+  userId: string | null;
+  login: (token: string) => void;
   logout: () => void;
 }
 
@@ -14,25 +26,40 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
   const [username, setUsername] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  const login = (token: string, username: string) => {
+  const decodeToken = (token: string) => {
+    const decoded: DecodedToken = jwtDecode(token);
+    setUsername(decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"]);
+    setEmail(decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"]);
+    setUserId(decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"]);
+  };
+
+  const login = (token: string) => {
     setToken(token);
-    setUsername(username);
-    localStorage.setItem('token', token); // Persist token
-    localStorage.setItem('username', username); // Persist username
+    localStorage.setItem('token', token);
+    decodeToken(token);
   };
 
   const logout = () => {
     setToken(null);
     setUsername(null);
+    setEmail(null);
+    setUserId(null);
     localStorage.removeItem('token');
-    localStorage.removeItem('username');
   };
 
+  useEffect(() => {
+    if (token) {
+      decodeToken(token);
+    }
+  }, [token]);
+
   return (
-    <AuthContext.Provider value={{ token, username, login, logout }}>
+    <AuthContext.Provider value={{ token, username, email, userId, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

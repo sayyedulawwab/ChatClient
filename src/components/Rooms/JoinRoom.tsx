@@ -1,43 +1,57 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { joinRoom } from '../../api/rooms';
+import { getRoomDetails, joinRoom } from '../../api/rooms'; // Assume these functions are in the API utility
+import { useAuth } from '../../contexts/AuthContext';
 
 const JoinRoom = () => {
   const [roomId, setRoomId] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const { username } = useAuth(); // Get the username from AuthContext
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleJoinRoom = async () => {
+    if (!roomId) return;
+
+    setLoading(true);
+
     try {
-      await joinRoom(roomId);
-      setError(null);
-      alert('Successfully joined the room!');
-      navigate(`/chat-room/${roomId}`);
-    } catch (error: any) {
-      console.error('Joining room failed:', error);
-      if (error.response?.status === 401) {
-        setError('Unauthorized. Please log in again.');
-        navigate('/login'); // Redirect to login
+      // Check if the user is already a member of the room
+      console.log(username)
+      const roomDetails = await getRoomDetails(roomId); // Calls `/api/rooms/{roomId}`
+      const isMember = roomDetails.members.some(
+        (member: { name: string }) => member.name === username
+      );
+
+      if (isMember) {
+        // Redirect to chat room if already a member
+        navigate(`/chat-room/${roomId}`);
       } else {
-        setError(error.response?.data?.message || 'Something went wrong');
+        // Call the joinRoom function to add the user to the room
+        await joinRoom(roomId, username); // This should handle joining logic
+        navigate(`/chat-room/${roomId}`); // Redirect after joining
       }
+    } catch (error) {
+      console.error('Error while joining the room:', error);
+      alert('Failed to join the room. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h2>Join Room</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+    <div>
+      <h2>Join a Room</h2>
       <input
         type="text"
-        placeholder="Room ID"
+        placeholder="Enter Room ID"
         value={roomId}
         onChange={(e) => setRoomId(e.target.value)}
-        required
+        disabled={loading}
       />
-      <button type="submit">Join Room</button>
-    </form>
+      <button onClick={handleJoinRoom} disabled={loading}>
+        {loading ? 'Joining...' : 'Join Room'}
+      </button>
+    </div>
   );
 };
 

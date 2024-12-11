@@ -10,6 +10,11 @@ export const joinRoom = async (roomId: string) => {
   return response.data;
 };
 
+export const getRoomDetails = async (roomId: string) => {
+  const response = await apiClient.get(`/rooms/${roomId}`);
+  return response.data;
+};
+
 export const getRoomMessages = async (roomId: string, page: number, pageSize: number) => {
   const response = await apiClient.get(`/conversations/${roomId}?page=${page}&pageSize=${pageSize}`);
   return response.data;

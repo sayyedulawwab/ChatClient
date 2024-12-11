@@ -12,9 +12,9 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { accessToken, username } = await apiLogin(email, password);
-      login(accessToken, username); // Save token and username in context
-      navigate(`/chat-room/${username}`); // Navigate to the chat room after login
+      const { accessToken } = await apiLogin(email, password);
+      login(accessToken); // Save token and username in context
+      navigate(`/join-room`); // Navigate to the chat room after login
     } catch (error) {
       console.error('Login failed', error);
     }
