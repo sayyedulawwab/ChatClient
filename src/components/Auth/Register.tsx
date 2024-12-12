@@ -18,7 +18,7 @@ const Register = () => {
       await register(name, email, password);
       setError(null);
       alert('Registration successful! You can now log in.');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Registration failed:', error);
       setError(error.response?.data?.message || 'Something went wrong');
     }

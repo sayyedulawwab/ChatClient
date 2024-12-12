@@ -14,7 +14,7 @@ const Login = () => {
     try {
       const { accessToken } = await apiLogin(email, password);
       login(accessToken); // Save token and username in context
-      navigate(`/join-room`); // Navigate to the chat room after login
+      navigate(`/select-room`); // Navigate to the select-room-action route
     } catch (error) {
       console.error('Login failed', error);
     }
@@ -22,8 +22,18 @@ const Login = () => {
 
   return (
     <form onSubmit={handleSubmit}>
-      <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-      <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <input
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+      <input
+        type="password"
+        placeholder="Password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
       <button type="submit">Login</button>
     </form>
   );

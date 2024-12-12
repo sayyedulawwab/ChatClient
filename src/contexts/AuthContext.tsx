@@ -1,4 +1,4 @@
-import { jwtDecode } from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode'; // Ensure this is correctly imported
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
 interface DecodedToken {
@@ -15,6 +15,7 @@ interface AuthContextProps {
   username: string | null;
   email: string | null;
   userId: string | null;
+  isAuthenticated: boolean;
   login: (token: string) => void;
   logout: () => void;
 }
@@ -30,6 +31,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [username, setUsername] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!token);
 
   const decodeToken = (token: string) => {
     const decoded: DecodedToken = jwtDecode(token);
@@ -42,6 +44,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setToken(token);
     localStorage.setItem('token', token);
     decodeToken(token);
+    setIsAuthenticated(true);
   };
 
   const logout = () => {
@@ -49,17 +52,31 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setUsername(null);
     setEmail(null);
     setUserId(null);
+    setIsAuthenticated(false);
     localStorage.removeItem('token');
   };
 
   useEffect(() => {
     if (token) {
       decodeToken(token);
+      setIsAuthenticated(true);
+    } else {
+      setIsAuthenticated(false);
     }
   }, [token]);
 
   return (
-    <AuthContext.Provider value={{ token, username, email, userId, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        token,
+        username,
+        email,
+        userId,
+        isAuthenticated,
+        login,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

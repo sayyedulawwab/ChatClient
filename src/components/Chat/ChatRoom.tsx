@@ -1,89 +1,124 @@
 import { HubConnection, HubConnectionBuilder } from '@microsoft/signalr';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getRoomMessages } from '../../api/rooms';
+import { createConversation, getConversation, getRoomMessages } from '../../api/rooms';
 import { useAuth } from '../../contexts/AuthContext';
 
 const ChatRoom = () => {
   const { roomId } = useParams<{ roomId: string }>();
-  const { userId, token, username } = useAuth(); // Retrieve username from context
-  const [connection, setConnection] = useState<HubConnection | null>(null);
-  const [messages, setMessages] = useState<any[]>([]);
+  const { userId, token, username } = useAuth();
+  const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
-  
+  const [typingUser, setTypingUser] = useState<string | null>(null);
+  const [typingTimeout, setTypingTimeout] = useState(null);
+  const connectionRef = useRef<HubConnection | null>(null);
+
+  // Establish the connection only once
   useEffect(() => {
     const connect = new HubConnectionBuilder()
       .withUrl('http://localhost:5223/chat', {
         headers: {
-          Authorization: `Bearer ${token}`, // Send token in header
+          Authorization: `Bearer ${token}`,
         },
       })
       .withAutomaticReconnect()
       .build();
 
-    // Handle incoming messages
+    connectionRef.current = connect;
+
+    // Setup event listeners for receiving messages and typing notifications
     connect.on('ReceiveMessage', (senderName, content) => {
       setMessages((prev) => [...prev, { senderName, content }]);
+      setTypingUser(null); // Clear typing notification when a message is received
     });
 
-    // Handle user joining the room
-    connect.on('UserJoined', (admin, message) => {
-      console.log(message);
+    connect.on('UserTyping', (typingUsername) => {
+      if (typingUsername !== username) {
+        setTypingUser(typingUsername);
+
+        // Clear previous timeout
+        if (typingTimeout) {
+          clearTimeout(typingTimeout);
+        }
+
+        // Set new timeout to clear typing status after 3 seconds
+        const timeout = setTimeout(() => {
+          setTypingUser(null);
+        }, 1000);
+
+        setTypingTimeout(timeout);
+      }
     });
 
-    let isConnected = false;
-
-    // Start the connection and handle success or failure
+    // Start the connection
+    let isMounted = true;
     connect.start()
       .then(() => {
-        isConnected = true;
-        console.log('SignalR Connection established');
-        if (username && roomId) {
+        if (isMounted && username && roomId) {
           connect.invoke('JoinSpecificChatRoom', { username, roomId });
+          console.log('SignalR Connection established');
         }
       })
       .catch((error) => {
         console.error('Error starting SignalR connection:', error);
       });
 
-    // Set the connection state
-    setConnection(connect);
-
-    // Cleanup: stop the connection when the component is unmounted
     return () => {
-      if (isConnected) {
-        connect.stop().then(() => console.log('SignalR Connection stopped'));
+      isMounted = false;
+      if (connectionRef.current) {
+        connectionRef.current.stop().then(() => {
+          console.log('SignalR Connection stopped');
+        });
+      }
+      if (typingTimeout) {
+        clearTimeout(typingTimeout);
       }
     };
-  }, [roomId, username, token]);
+  }, [token, username, roomId]); // Dependencies for the initial connection
 
-  // Load room messages when roomId changes
+  // Load messages for the room when roomId changes
   useEffect(() => {
-    if (roomId) {
-      const loadMessages = async () => {
-        const roomMessages = await getRoomMessages(roomId, 1, 50);
-        setMessages(roomMessages.messages);
-      };
+    const initRoom = async () => {
+      if (roomId) {
+        try {
 
-      loadMessages();
-    }
-  }, [roomId]);
+          const conversation = await getConversation(roomId);
+
+          console.log(conversation)
+
+          // Check if the conversation exists
+        if (!conversation || !conversation.id) {
+          // If no conversation exists, create a new one
+          await createConversation(roomId, []);
+        }
+  
+          const roomMessages = await getRoomMessages(roomId, 1, 50); // Then load messages
+          setMessages(roomMessages.messages);
+        } catch (error) {
+          console.error("Error during room initialization:", error);
+        }
+      }
+    };
+  
+    initRoom();
+  }, [roomId]); // Trigger message load when roomId changes
 
   const sendMessage = async () => {
-    console.log('sendMessage');
-    console.log(connection);
-    console.log(roomId);
-    console.log(message);
-    console.log(userId);
-
-    if (connection && roomId && message && userId) {
-      console.log('sendMessage in condition');
+    if (connectionRef.current && roomId && message && userId) {
       try {
-        await connection.invoke('SendMessage', roomId, userId, message); // Use userId here
-        setMessage('');
+        await connectionRef.current.invoke('SendMessage', roomId, userId, message);
+        setMessage(''); // Reset message input after sending
       } catch (error) {
         console.error('Error sending message:', error);
       }
+    }
+  };
+
+  const handleTyping = () => {
+    if (connectionRef.current && roomId && username) {
+      connectionRef.current.invoke('Typing', roomId, username).catch((error) => {
+        console.error('Error sending typing event:', error);
+      });
     }
   };
 
@@ -96,10 +131,12 @@ const ChatRoom = () => {
             {msg.content}
           </p>
         ))}
+        {typingUser && <p><em>{typingUser} is typing...</em></p>}
       </div>
       <input
         value={message}
         onChange={(e) => setMessage(e.target.value)}
+        onKeyUp={handleTyping}
         placeholder="Type a message"
       />
       <button onClick={sendMessage}>Send</button>

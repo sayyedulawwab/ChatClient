@@ -27,7 +27,7 @@ const JoinRoom = () => {
         navigate(`/chat-room/${roomId}`);
       } else {
         // Call the joinRoom function to add the user to the room
-        await joinRoom(roomId, username); // This should handle joining logic
+        await joinRoom(roomId); // This should handle joining logic
         navigate(`/chat-room/${roomId}`); // Redirect after joining
       }
     } catch (error) {
