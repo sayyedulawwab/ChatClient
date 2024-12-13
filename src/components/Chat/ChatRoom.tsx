@@ -10,116 +10,106 @@ const ChatRoom = () => {
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
   const [typingUser, setTypingUser] = useState<string | null>(null);
-  const [typingTimeout, setTypingTimeout] = useState(null);
   const connectionRef = useRef<HubConnection | null>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Establish the connection only once
+  // Initialize SignalR connection
   useEffect(() => {
-    const connect = new HubConnectionBuilder()
-      .withUrl('http://localhost:5223/chat', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-      .withAutomaticReconnect()
-      .build();
+    const initializeConnection = async () => {
+      if (connectionRef.current || !token || !username || !roomId) return;
 
-    connectionRef.current = connect;
+      const connection = new HubConnectionBuilder()
+        .withUrl('http://localhost:5223/chat', {
+          accessTokenFactory: () => token,
+        })
+        .withAutomaticReconnect()
+        .build();
 
-    // Setup event listeners for receiving messages and typing notifications
-    connect.on('ReceiveMessage', (senderName, content) => {
-      setMessages((prev) => [...prev, { senderName, content }]);
-      setTypingUser(null); // Clear typing notification when a message is received
-    });
+      connectionRef.current = connection;
 
-    connect.on('UserTyping', (typingUsername) => {
-      if (typingUsername !== username) {
-        setTypingUser(typingUsername);
+      try {
+        await connection.start();
+        console.log('SignalR connection established');
 
-        // Clear previous timeout
-        if (typingTimeout) {
-          clearTimeout(typingTimeout);
-        }
+        // Join the specific chat room
+        await connection.invoke('JoinSpecificChatRoom', { username, roomId });
 
-        // Set new timeout to clear typing status after 3 seconds
-        const timeout = setTimeout(() => {
+        // Handle incoming messages
+        connection.on('ReceiveMessage', (senderName, content) => {
+          setMessages((prev) => [...prev, { senderName, content }]);
           setTypingUser(null);
-        }, 1000);
+        });
 
-        setTypingTimeout(timeout);
-      }
-    });
+        // Handle typing notifications
+        connection.on('UserTyping', (typingUsername) => {
+          if (typingUsername !== username) {
+            setTypingUser(typingUsername);
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
-    // Start the connection
-    let isMounted = true;
-    connect.start()
-      .then(() => {
-        if (isMounted && username && roomId) {
-          connect.invoke('JoinSpecificChatRoom', { username, roomId });
-          console.log('SignalR Connection established');
-        }
-      })
-      .catch((error) => {
+            typingTimeoutRef.current = setTimeout(() => {
+              setTypingUser(null);
+            }, 1000);
+          }
+        });
+
+      } catch (error) {
         console.error('Error starting SignalR connection:', error);
-      });
+      }
+    };
+
+    initializeConnection();
 
     return () => {
-      isMounted = false;
       if (connectionRef.current) {
         connectionRef.current.stop().then(() => {
-          console.log('SignalR Connection stopped');
+          console.log('SignalR connection stopped');
         });
       }
-      if (typingTimeout) {
-        clearTimeout(typingTimeout);
-      }
+
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
-  }, [token, username, roomId]); // Dependencies for the initial connection
+  }, [token, username, roomId]);
 
-  // Load messages for the room when roomId changes
+  // Initialize room data
   useEffect(() => {
-    const initRoom = async () => {
-      if (roomId) {
-        try {
+    const initializeRoom = async () => {
+      if (!roomId) return;
 
-          const conversation = await getConversation(roomId);
-
-          console.log(conversation)
-
-          // Check if the conversation exists
+      try {
+        const conversation = await getConversation(roomId);
         if (!conversation || !conversation.id) {
-          // If no conversation exists, create a new one
           await createConversation(roomId, []);
         }
-  
-          const roomMessages = await getRoomMessages(roomId, 1, 50); // Then load messages
-          setMessages(roomMessages.messages);
-        } catch (error) {
-          console.error("Error during room initialization:", error);
-        }
+
+        const roomMessages = await getRoomMessages(roomId, 1, 50);
+        setMessages(roomMessages.messages);
+      } catch (error) {
+        console.error('Error initializing room:', error);
       }
     };
-  
-    initRoom();
-  }, [roomId]); // Trigger message load when roomId changes
 
+    initializeRoom();
+  }, [roomId]);
+
+  // Send a message
   const sendMessage = async () => {
-    if (connectionRef.current && roomId && message && userId) {
-      try {
-        await connectionRef.current.invoke('SendMessage', roomId, userId, message);
-        setMessage(''); // Reset message input after sending
-      } catch (error) {
-        console.error('Error sending message:', error);
-      }
+    if (!connectionRef.current || !roomId || !message.trim() || !userId) return;
+
+    try {
+      await connectionRef.current.invoke('SendMessage', roomId, userId, message);
+      setMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
     }
   };
 
+  // Notify typing
   const handleTyping = () => {
-    if (connectionRef.current && roomId && username) {
-      connectionRef.current.invoke('Typing', roomId, username).catch((error) => {
-        console.error('Error sending typing event:', error);
-      });
-    }
+    if (!connectionRef.current || !roomId || !username) return;
+
+    connectionRef.current.invoke('Typing', roomId, username).catch((error) => {
+      console.error('Error sending typing event:', error);
+    });
   };
 
   return (
