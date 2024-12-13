@@ -15,7 +15,9 @@ const ChatRoom = () => {
 
   // Initialize SignalR connection
   useEffect(() => {
+
     const initializeConnection = async () => {
+      
       if (connectionRef.current || !token || !username || !roomId) return;
 
       const connection = new HubConnectionBuilder()
